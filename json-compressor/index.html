@@ -1,1 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>json compressor for fnf charts and other things</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 0px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+        .file-input-wrapper {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .custom-file-upload {
+            border: 2px dashed #007bff;
+            color: #007bff;
+            background-color: #e9f3ff;
+            padding: 15px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            display: inline-block;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            width: 80%;
+        }
+        .custom-file-upload:hover {
+            background-color: #007bff;
+            color: #fff;
+        }
+        .file-name {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #555;
+            font-style: italic;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 0px;
+            cursor: pointer;
+            width: 90%;
+            transition: background-color 0.2s;
+            display: none; /* Hidden until a file is selected */
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .error {
+            color: #dc3545;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
 
+<div class="container">
+    <h2>JSON Compressor</h2>
+    <p>upload your json file here</p>
+    
+    <div class="file-input-wrapper">
+        <label for="jsonFile" class="custom-file-upload">
+            📁 Choose JSON File
+        </label>
+        <input type="file" id="jsonFile" accept=".json">
+        <div id="fileName" class="file-name"></div>
+    </div>
+
+    <button id="compressBtn">Compress & Download</button>
+    <div id="errorMsg" class="error"></div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('jsonFile');
+    const fileNameDiv = document.getElementById('fileName');
+    const compressBtn = document.getElementById('compressBtn');
+    const errorMsg = document.getElementById('errorMsg');
+    
+    let uploadedFile = null;
+
+    // Listen for file selection
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            uploadedFile = file;
+            fileNameDiv.textContent = `Selected: ${file.name}`;
+            compressBtn.style.display = 'inline-block'; // Show the compress button
+            errorMsg.style.display = 'none'; // Hide any previous errors
+        }
+    });
+
+    // Handle compression and download
+    compressBtn.addEventListener('click', () => {
+        if (!uploadedFile) return;
+
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            try {
+                // Parse the text into a JS object to validate it
+                const jsonObject = JSON.parse(e.target.result);
+                
+                // Convert it back to a string with zero whitespace (compressed)
+                const compressedJson = JSON.stringify(jsonObject);
+                
+                // Create a blob representing the compressed data
+                const blob = new Blob([compressedJson], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                
+                // Generate a temporary anchor element to trigger the download
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                
+                // Append '.min.json' to the original filename or swap the extension
+                const newFileName = uploadedFile.name.endsWith('.json') 
+                    ? uploadedFile.name.replace('.json', '.min.json') 
+                    : `${uploadedFile.name}.min.json`;
+                    
+                downloadLink.download = newFileName;
+                
+                // Trigger the download programmatically
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                
+                // Clean up the DOM and memory
+                document.body.removeChild(downloadLink);
+                URL.revokeObjectURL(url);
+                
+                // Reset UI
+                fileInput.value = '';
+                fileNameDiv.textContent = '';
+                compressBtn.style.display = 'none';
+                uploadedFile = null;
+
+            } catch (err) {
+                errorMsg.textContent = "Error: Invalid JSON file structure.";
+                errorMsg.style.display = 'block';
+            }
+        };
+
+        reader.readAsText(uploadedFile);
+    });
+</script>
+
+</body>
+</html>
