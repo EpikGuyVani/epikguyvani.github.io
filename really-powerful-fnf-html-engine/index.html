@@ -1,1 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Notes Only</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+Symbols+2&display=swap">
+<style>
+:root{--bg:#120e1a;--panel:#1c1628;--line:#3a2f52;--ink:#f3ecff;--dim:#9c8fb8;--acc:#c24b99;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Trebuchet MS","Segoe UI",system-ui,sans-serif;overflow:hidden}
+canvas{position:fixed;inset:0;width:100%;height:100%;touch-action:none;display:block}
+[hidden]{display:none!important}
+#menu{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(10,7,16,.72)}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:14px;padding:22px 24px;width:min(440px,100%);max-height:100%;overflow:auto}
+h1{margin:0 0 6px;font-size:30px;letter-spacing:.5px}
+h1 span{display:inline-block;margin-right:6px;font-weight:900}
+#info{margin:0 0 14px;color:var(--dim);white-space:pre-line}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.btn,#go{cursor:pointer;border:2px solid var(--line);background:#261d38;color:var(--ink);border-radius:10px;padding:8px 14px;font:inherit;font-weight:700}
+.btn:hover,#go:hover{border-color:var(--acc)}
+.btn:focus-within,#go:focus-visible{outline:3px solid #00ffff;outline-offset:2px}
+.btn input{position:absolute;opacity:0;width:1px;height:1px}
+#go{width:100%;background:var(--acc);border-color:var(--acc);font-size:18px;padding:11px}
+.opt{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.opt input[type=range]{flex:1}
+.tabs{display:flex;gap:6px;margin-bottom:14px}
+.tab{flex:1;cursor:pointer;border:2px solid var(--line);background:#261d38;color:var(--ink);border-radius:10px;padding:8px;font:inherit;font-weight:700}
+.tab.on{background:var(--acc);border-color:var(--acc)}
+.tab:focus-visible{outline:3px solid #00ffff;outline-offset:2px}
+.grp{margin:14px 0 8px;color:var(--dim);font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.opt b{min-width:64px;text-align:right}
+.hint{margin:12px 0 0;color:var(--dim);font-size:13px}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="menu"><div class="card">
+<h1><span style="color:#c24b99">←</span><span style="color:#00d5e8">↓</span><span style="color:#12fa05">↑</span><span style="color:#f9393f">→</span> Notes Only</h1>
+<p id="info"></p>
+<div class="tabs" role="tablist"><button class="tab on" data-t="song" role="tab" aria-selected="true">Song</button><button class="tab" data-t="opts" role="tab" aria-selected="false">Options</button></div>
+<section id="tab-song">
+<div class="row">
+<label class="btn">Load chart (.json)<input type="file" id="fc" accept=".json,application/json"></label>
+<label class="btn">Load audio<input type="file" id="fa" accept="audio/*,.ogg" multiple></label>
+</div>
+<label class="opt">Scroll speed <input type="number" id="spd" min="0" max="100" step="1" value="0"><b id="spdv">chart</b></label>
+</section>
+<section id="tab-opts" hidden>
+<div class="grp">Gameplay</div>
+<label class="opt"><input type="checkbox" id="down"> Downscroll</label>
+<label class="opt"><input type="checkbox" id="auto"> Botplay</label>
+<label class="opt"><input type="checkbox" id="ghost" checked> Ghost tapping</label>
+<label class="opt"><input type="checkbox" id="hitsnd"> Hit sounds</label>
+<label class="opt">Note offset <input type="range" id="offs" min="-200" max="200" step="5" value="0"><b id="offsv"></b></label>
+<label class="opt">Music volume <input type="range" id="vol" min="0" max="100" step="5" value="100"><b id="volv"></b></label>
+<div class="grp">Display</div>
+<label class="opt"><input type="checkbox" id="hidesick"> Hide "Sick!!" ratings</label>
+<label class="opt"><input type="checkbox" id="hidecombo"> Hide combo counter</label>
+<label class="opt"><input type="checkbox" id="showfps" checked> Show FPS counter</label>
+<label class="opt"><input type="checkbox" id="showstats" checked> Show notes / NPS stats</label>
+<label class="opt">Note size <input type="range" id="nsize" min="60" max="140" step="5" value="100"><b id="nsizev"></b></label>
+<label class="opt">Lane backing <input type="range" id="lanea" min="0" max="100" step="5" value="25"><b id="laneav"></b></label>
+</section>
+<button id="go">Play</button>
+<p class="hint">Keys: D F J K or the arrow keys. Esc stops the song. On touch, tap the right four lanes. You can also drop chart and audio files anywhere on the page. Audio named "voices" plays as the vocal track. Note offset: + makes notes arrive earlier, − makes them arrive later.</p>
+</div></div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id), cv=$("cv"), cx=cv.getContext("2d",{alpha:false,desynchronized:true});
+const COL=["#c24b99","#00ffff","#12fa05","#f9393f"], GLY=["🡰","🡳","🡱","🡲"];
+const WIN=[45,90,135,166], PTS=[350,200,100,50], WGT=[1,.75,.5,.25], NAMES=["Sick!!","Good","Bad","Shit","Miss"], LEAD=2000;
+const KEYS={KeyD:0,ArrowLeft:0,KeyF:1,ArrowDown:1,KeyJ:2,ArrowUp:2,KeyK:3,ArrowRight:3};
+
+// ---- chart data (typed arrays, sorted by time) ----
+let T,L,LEN,SIDE,ST,END,n=0,lanes=[],chartName="",chartSpeed=1,chartBpm=0,endT=0;
+const ptr=new Int32Array(8), hold=new Int32Array(4).fill(-1), glow=new Float64Array(8), down4=new Uint8Array(4);
+let inst=null, voices=null;
+
+function parseChart(j){
+  const s=(j.song&&typeof j.song==="object")?j.song:j, out=[]; let speed=1;
+  chartName=typeof j.song==="string"?j.song:(s.song||"Unknown");
+  if(Array.isArray(s.notes)){               // Psych Engine / Kade / vanilla FNF
+    for(const sec of s.notes){
+      const mh=!!sec.mustHitSection, sn=sec.sectionNotes; if(!sn)continue;
+      for(const nt of sn){
+        const d=nt[1]|0; if(d<0||d>7||nt[0]==null)continue;
+        if(nt[3]==="Hurt Note")continue;
+        out.push([+nt[0],d&3,Math.max(0,+nt[2]||0),((d<4)===mh)?1:0]);
+      }
+    }
+    speed=+s.speed||1;
+  }else if(s.notes&&typeof s.notes==="object"){   // v-slice style {difficulty:[{t,d,l}]}
+    const k=Object.keys(s.notes)[0];
+    for(const o of s.notes[k]) if(o.d>=0&&o.d<8) out.push([+o.t,o.d&3,Math.max(0,+o.l||0),o.d<4?1:0]);
+    speed=+(j.scrollSpeed&&j.scrollSpeed[k])||1;
+  }else throw new Error("No notes found in this file");
+  if(!out.length)throw new Error("Chart has no playable notes");
+  chartSpeed=speed; chartBpm=+s.bpm||0; build(out);
+}
+function build(list){
+  list.sort((a,b)=>a[0]-b[0]); n=list.length;
+  T=new Float64Array(n);L=new Uint8Array(n);LEN=new Float64Array(n);SIDE=new Uint8Array(n);ST=new Uint8Array(n);END=new Float64Array(n);
+  const tmp=[[],[],[],[],[],[],[],[]]; endT=0;
+  for(let i=0;i<n;i++){const o=list[i];T[i]=o[0];L[i]=o[1];LEN[i]=o[2];SIDE[i]=o[3];END[i]=o[0]+o[2];if(END[i]>endT)endT=END[i];tmp[o[3]*4+o[1]].push(i);}
+  lanes=tmp.map(a=>Int32Array.from(a));
+  totOpp=lanes[0].length+lanes[1].length+lanes[2].length+lanes[3].length;totBf=n-totOpp;
+}
+function demoChart(){
+  let seed=7;const r=()=>(seed=(seed*1664525+1013904223)>>>0)/4294967296,secs=[],used=new Set();
+  for(let s=0;s<24;s++){
+    const mh=s%2===0,sn=[];
+    for(let st=0;st<16;st++){
+      const t=1000+(s*16+st)*100;
+      if(st%2===0?r()<.75:r()<.3){const d=(r()*4|0)+(mh?0:4);if(!used.has(t+":"+d)){used.add(t+":"+d);sn.push([t,d,r()<.12?200+(r()*3|0)*100:0]);}}
+      if(r()<.22){const d=(r()*4|0)+(mh?4:0);if(!used.has(t+":"+d)){used.add(t+":"+d);sn.push([t,d,0]);}}
+    }
+    secs.push({mustHitSection:mh,sectionNotes:sn});
+  }
+  return {song:{song:"Demo (generated)",bpm:150,speed:2.2,notes:secs}};
+}
+
+// ---- layout & sprites ----
+let W,H,dpr,lw,gap,x0,recY,ppm,dirDown=false,spr=[],rec=[];
+const laneX=g=>x0+g*lw+(g>=4?gap:0);
+function mkSprite(l,fill,stroke,alpha){
+  const s=Math.ceil(lw*dpr),c=document.createElement("canvas");c.width=c.height=s;const g=c.getContext("2d");
+  g.font='900 '+(s*.86)+'px "Noto Sans Symbols 2","Segoe UI Symbol","Arial Unicode MS","DejaVu Sans",Arial,sans-serif';
+  g.textAlign="center";g.lineJoin="round";g.lineWidth=s*.09;
+  const m=g.measureText(GLY[l]),y=s/2+(m.actualBoundingBoxAscent-m.actualBoundingBoxDescent)/2;
+  g.globalAlpha=alpha;g.strokeStyle=stroke;g.strokeText(GLY[l],s/2,y);g.fillStyle=fill;g.fillText(GLY[l],s/2,y);
+  return c;
+}
+function layout(){
+  dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;
+  cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);cx.setTransform(dpr,0,0,dpr,0,0);
+  lw=Math.min(Math.min(W/9.5,118)*noteSize,W/8.7);gap=lw*.5;x0=(W-(8*lw+gap))/2;
+  dirDown=$("down").checked;recY=dirDown?H-lw*1.2:lw*1.2;
+  const sv=+$("spd").value;ppm=.45*(sv||chartSpeed)*H/720;
+  spr=[];rec=[];for(let l=0;l<4;l++){spr.push(mkSprite(l,COL[l],"#000",1));rec.push(mkSprite(l,"#2a2238","#7c6d99",.75));}
+}
+
+// ---- game state ----
+let playing=false,raf=0,t0=0,audioLive=false,auto=false,fc=0,fpsN=0,fpsL=0,fps=0,hideSick=false,hideCombo=false,showFps=true,showStats=true,ghost=true,hitSnd=false,noteSize=1,laneA=.04,offMs=0;
+let score,combo,maxCombo,counts,accSum,popT=0,popI=0,vis=0;
+let lastA=-1,lastP=0;
+function pos(){
+  if(!(audioLive&&inst))return performance.now()-t0+offMs;
+  const p=performance.now(),c=inst.currentTime*1000;
+  if(c!==lastA){lastA=c;lastP=p;}
+  return c+(p-lastP)+offMs;
+}
+const npsBuf=new Float64Array(65536);let npsH=0,npsT=0,npsMax=0;
+const oBuf=new Float64Array(65536);let oH=0,oT=0,oMax=0,totOpp=0,totBf=0;
+
+function reset(){
+  ST.fill(0);ptr.fill(0);hold.fill(-1);glow.fill(0);down4.fill(0);vis=0;
+  score=0;combo=0;maxCombo=0;accSum=0;counts=[0,0,0,0,0];popT=0;audioLive=false;lastA=-1;npsH=npsT=npsMax=0;oH=oT=oMax=0;fpsN=0;fpsL=performance.now();
+}
+function readOpts(){
+  auto=$("auto").checked;hideSick=$("hidesick").checked;hideCombo=$("hidecombo").checked;
+  showFps=$("showfps").checked;showStats=$("showstats").checked;ghost=$("ghost").checked;hitSnd=$("hitsnd").checked;
+  noteSize=$("nsize").value/100;laneA=$("lanea").value*.0016;offMs=+$("offs").value;
+  for(const a of [inst,voices]) if(a)a.volume=$("vol").value/100;
+}
+let actx=null;
+function tick(){
+  try{actx=actx||new(window.AudioContext||window.webkitAudioContext)();
+  const o=actx.createOscillator(),g=actx.createGain(),n=actx.currentTime;
+  o.frequency.value=1500;g.gain.setValueAtTime(.15,n);g.gain.exponentialRampToValueAtTime(.001,n+.04);
+  o.connect(g);g.connect(actx.destination);o.start(n);o.stop(n+.05);}catch(e){}
+}
+function play(){
+  if(!n)return;readOpts();layout();reset();
+  for(const a of [inst,voices]) if(a){a.pause();a.currentTime=0;}
+  $("menu").hidden=true;t0=performance.now()+LEAD;playing=true;cancelAnimationFrame(raf);raf=requestAnimationFrame(frame);
+}
+function stop(res){
+  playing=false;cancelAnimationFrame(raf);for(const a of [inst,voices]) if(a)a.pause();
+  if(res){const tot=counts.reduce((a,b)=>a+b,0)||1;
+    $("info").textContent="Score "+score+"   Accuracy "+(accSum/tot*100).toFixed(2)+"%   Max combo "+maxCombo+"   Max NPS "+npsMax+"\nSick "+counts[0]+"  Good "+counts[1]+"  Bad "+counts[2]+"  Shit "+counts[3]+"  Miss "+counts[4];}
+  $("menu").hidden=false;
+}
+function rate(dd){
+  const i=dd<=WIN[0]?0:dd<=WIN[1]?1:dd<=WIN[2]?2:3;
+  counts[i]++;score+=PTS[i];accSum+=WGT[i];if(++combo>maxCombo)maxCombo=combo;popT=performance.now();popI=i;
+  npsBuf[npsT++&65535]=popT;if(npsT-npsH>65536)npsH=npsT-65536;
+}
+function miss(){counts[4]++;score-=10;combo=0;popT=performance.now();popI=4;}
+
+function press(l){
+  if(!playing||down4[l])return;down4[l]=1;if(auto)return;
+  const g=4+l,a=lanes[g],p=ptr[g];if(p>=a.length){if(!ghost)miss();return;}
+  const i=a[p],dd=Math.abs(T[i]-pos());if(dd>WIN[3]){if(!ghost)miss();return;}
+  ST[i]=1;ptr[g]++;rate(dd);if(hitSnd)tick();if(LEN[i]>0)hold[l]=i;
+}
+function release(l){down4[l]=0;}
+
+function update(t){
+  for(let g=0;g<8;g++){
+    const a=lanes[g],bot=g<4||auto,l=g&3;let p=ptr[g];
+    while(p<a.length){
+      const i=a[p];
+      if(bot){ if(T[i]<=t){ST[i]=1;if(g>=4){rate(0);}else{oBuf[oT++&65535]=performance.now();if(oT-oH>65536)oH=oT-65536;}glow[g]=Math.max(END[i],t+110);if(LEN[i]>0&&g>=4)hold[l]=i;p++;}else break; }
+      else if(ST[i]===0&&T[i]<t-WIN[3]){ST[i]=2;miss();p++;}
+      else break;
+    }
+    ptr[g]=p;
+  }
+  for(let l=0;l<4;l++){
+    const h=hold[l];if(h<0)continue;
+    if(t>=END[h])hold[l]=-1;
+    else if(auto||down4[l])glow[4+l]=t+60;
+    else{if(END[h]-t>100)ST[h]=2;hold[l]=-1;}
+  }
+}
+
+function draw(t){
+  cx.fillStyle="#120e1a";cx.fillRect(0,0,W,H);
+  cx.fillStyle="rgba(255,255,255,"+laneA+")";cx.fillRect(laneX(0),0,4*lw,H);cx.fillRect(laneX(4),0,4*lw,H);
+  for(let g=0;g<8;g++){
+    const l=g&3,on=(g>=4&&down4[l])||glow[g]>t,s=on?lw*1.12:lw;
+    cx.drawImage(on?spr[l]:rec[l],Math.round(laneX(g)+(lw-s)/2),Math.round(recY-s/2),s,s);
+  }
+  const sg=dirDown?-1:1,ahead=((dirDown?recY:H-recY)+lw)/ppm,trail=((dirDown?H-recY:recY)+lw)/ppm,sw=lw*.26;
+  while(vis<n&&END[vis]<t-trail)vis++;
+  let curA=1;cx.globalAlpha=1;
+  for(let j=vis;j<n&&T[j]<=t+ahead;j++){
+    const st=ST[j],ln=LEN[j];
+    if(st===1&&ln===0)continue;
+    if(st===1&&END[j]<t)continue;
+    const g=SIDE[j]*4+L[j],x=laneX(g),y=recY+sg*(T[j]-t)*ppm,al=st===2?.35:1;
+    if(al!==curA){cx.globalAlpha=al;curA=al;}
+    if(ln>0){
+      const y0=st===1?recY:y,y1=y+sg*ln*ppm,top=y0<y1?y0:y1,h=Math.abs(y1-y0);
+      cx.fillStyle=COL[L[j]];cx.globalAlpha=al*.7;cx.fillRect(Math.round(x+(lw-sw)/2),top,sw,h);cx.globalAlpha=al;
+    }
+    if(st!==1)cx.drawImage(spr[L[j]],Math.round(x),Math.round(y-lw/2),lw,lw);
+  }
+  cx.globalAlpha=1;
+  // HUD
+  const tot=counts.reduce((a,b)=>a+b,0),acc=tot?(accSum/tot*100).toFixed(1):"100.0";
+  cx.font="bold "+Math.max(14,lw*.26)+"px 'Trebuchet MS',sans-serif";cx.textAlign="center";cx.fillStyle="#f3ecff";
+  if(!auto)cx.fillText("Score "+score+"    Misses "+counts[4]+"    Accuracy "+acc+"%",W/2,dirDown?lw*.6:H-lw*.4);
+  const pn=performance.now()-1000;
+  while(npsH<npsT&&npsBuf[npsH&65535]<pn)npsH++;
+  while(oH<oT&&oBuf[oH&65535]<pn)oH++;
+  const nps=npsT-npsH,onps=oT-oH;if(nps>npsMax)npsMax=nps;if(onps>oMax)oMax=onps;
+  let oHit=0;for(let g=0;g<4;g++)oHit+=ptr[g];
+  const bHit=counts[0]+counts[1]+counts[2]+counts[3];
+  const ox=laneX(0)+2*lw,bx=laneX(4)+2*lw,y1=dirDown?lw*.92:H-lw*1.04,y2=dirDown?lw*1.24:H-lw*.72;
+  cx.fillStyle="#9c8fb8";
+  if(showStats){cx.fillText("OPP Notes "+oHit+" / "+totOpp,ox,y1);cx.fillText("OPP NPS "+onps+"  Max "+oMax,ox,y2);
+  cx.fillText("BF Notes "+bHit+" / "+totBf,bx,y1);cx.fillText("BF NPS "+nps+"  Max "+npsMax,bx,y2);}
+  cx.fillStyle="#f3ecff";
+  const age=performance.now()-popT;
+  if(age<700){
+    const cxp=laneX(4)+2*lw,al=age<350?1:1-(age-350)/350;
+    cx.globalAlpha=al;cx.font="900 "+lw*.5+"px 'Trebuchet MS',sans-serif";
+    if(!(hideSick&&popI===0)){cx.fillStyle=["#7df9ff","#7cff7c","#ffb347","#ff7a7a","#c8c8c8"][popI];cx.fillText(NAMES[popI],cxp,H/2-lw*.2);}
+    if(combo>=3&&!hideCombo){cx.font="bold "+lw*.32+"px 'Trebuchet MS',sans-serif";cx.fillStyle="#f3ecff";cx.fillText(combo+" combo",cxp,H/2+lw*.3);}
+    cx.globalAlpha=1;
+  }
+  if(t<0){cx.font="900 "+lw*.8+"px 'Trebuchet MS',sans-serif";cx.fillStyle="#f3ecff";cx.globalAlpha=.85;cx.fillText(Math.ceil(-t/(LEAD/3)),W/2,H/2);cx.globalAlpha=1;}
+  if(showFps){const ft="FPS: "+fps;cx.font='12px "Press Start 2P",monospace';cx.textAlign="left";
+  cx.fillStyle="rgba(0,0,0,.5)";cx.fillRect(8,8,cx.measureText(ft).width+16,26);
+  cx.fillStyle="#7cff7c";cx.fillText(ft,16,26);cx.textAlign="center";}
+}
+
+function frame(){
+  if(!playing)return;raf=requestAnimationFrame(frame);
+  fpsN++;const fn=performance.now();if(fn-fpsL>=500){fps=Math.round(fpsN*1000/(fn-fpsL));fpsN=0;fpsL=fn;}
+  if(inst&&!audioLive&&performance.now()-t0>=0){
+    inst.currentTime=(performance.now()-t0)/1000;inst.play().catch(()=>{});
+    if(voices){voices.currentTime=inst.currentTime;voices.play().catch(()=>{});}
+    audioLive=true;
+  }
+  const t=pos();
+  if(voices&&audioLive&&(++fc&63)===0&&Math.abs(voices.currentTime-inst.currentTime)>.15)voices.currentTime=inst.currentTime;
+  update(t);draw(t);
+  if(t>endT+1500)stop(true);
+}
+
+// ---- input ----
+addEventListener("keydown",e=>{
+  if(e.code==="Escape"&&playing){stop(false);return;}
+  const l=KEYS[e.code];if(l===undefined||e.repeat||!playing)return;e.preventDefault();press(l);
+});
+addEventListener("keyup",e=>{const l=KEYS[e.code];if(l!==undefined)release(l);});
+const ptrs=new Map();
+cv.addEventListener("pointerdown",e=>{
+  const l=Math.floor((e.clientX-laneX(4))/lw);if(l<0||l>3)return;ptrs.set(e.pointerId,l);press(l);
+});
+const up=e=>{const l=ptrs.get(e.pointerId);if(l!==undefined){ptrs.delete(e.pointerId);release(l);}};
+cv.addEventListener("pointerup",up);cv.addEventListener("pointercancel",up);
+addEventListener("blur",()=>down4.fill(0));
+addEventListener("resize",()=>{if(playing)layout();});
+
+// ---- files ----
+function showInfo(){
+  $("info").textContent=chartName+"\n"+n+" notes"+(chartBpm?" · "+chartBpm+" BPM":"")+" · chart speed "+chartSpeed+
+    "\nAudio: "+(inst?"loaded"+(voices?" (+ voices)":""):"none, playing silent");
+}
+async function loadFiles(files){
+  for(const f of files){
+    if(/\.json$/i.test(f.name)){
+      try{parseChart(JSON.parse(await f.text()));}catch(err){$("info").textContent="Couldn't read "+f.name+": "+err.message;return;}
+    }else if(f.type.startsWith("audio")||/\.(ogg|mp3|wav|m4a|flac|opus)$/i.test(f.name)){
+      const a=new Audio(URL.createObjectURL(f));a.preload="auto";
+      if(/voice/i.test(f.name))voices=a;else inst=a;
+    }
+  }
+  showInfo();
+}
+$("fc").onchange=e=>loadFiles(e.target.files);$("fa").onchange=e=>loadFiles(e.target.files);
+addEventListener("dragover",e=>e.preventDefault());
+addEventListener("drop",e=>{e.preventDefault();loadFiles(e.dataTransfer.files);});
+$("spd").oninput=e=>{$("spdv").textContent=+e.target.value?e.target.value+"x":"chart";};
+$("go").onclick=play;
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tab").forEach(x=>{const on=x===b;x.classList.toggle("on",on);x.setAttribute("aria-selected",on);});
+  $("tab-song").hidden=b.dataset.t!=="song";$("tab-opts").hidden=b.dataset.t!=="opts";
+});
+const FMT={nsize:v=>v+"%",lanea:v=>v+"%",offs:v=>(v>0?"+":"")+v+" ms",vol:v=>v+"%"};
+for(const id in FMT){const el=$(id),b=$(id+"v"),f=()=>{b.textContent=FMT[id](el.value);};el.addEventListener("input",f);f();}
+$("vol").addEventListener("input",()=>{for(const a of [inst,voices])if(a)a.volume=$("vol").value/100;});
+
+parseChart(demoChart());showInfo();
+if(document.fonts){document.fonts.load('12px "Press Start 2P"').catch(()=>{});document.fonts.load('48px "Noto Sans Symbols 2"',"🡰🡳🡱🡲").catch(()=>{});}
+</script>
+</body>
+</html>
 
