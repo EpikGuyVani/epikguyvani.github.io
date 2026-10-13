@@ -25,7 +25,7 @@ canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
 .slot{width:min(52px,9vw);height:min(52px,9vw);border:3px solid #55504a;background:rgba(0,0,0,.35);position:relative;display:grid;place-items:center}
 .slot.on{border-color:var(--sel);box-shadow:0 0 0 2px #000}
 .ic{width:62%;height:62%;background:linear-gradient(#5aa63a 0 32%,#8b5a2f 32%);box-shadow:inset 0 0 0 2px rgba(0,0,0,.35)}
-.ic.apple{background:none;box-shadow:none;font-size:30px;line-height:1;display:grid;place-items:center}
+.ic.apple,.ic.pork,.ic.beef{background:none;box-shadow:none;font-size:30px;line-height:1;display:grid;place-items:center}
 .ic.dirt{background:#8b5a2f}.ic.stone{background:#7d7d7d}.ic.leaves{background:#348228}
 .ic.coal_ore{background:radial-gradient(#1c1c1c 0 28%,transparent 30%) 0 0/9px 9px,#7d7d7d}
 .ic.iron_ore{background:radial-gradient(#d6aa8c 0 28%,transparent 30%) 0 0/9px 9px,#7d7d7d}
@@ -69,6 +69,8 @@ button.on{background:#4f9a34;box-shadow:inset 0 0 0 3px #9fe07f}
 #seed{font:inherit;font-size:28px;padding:6px 12px;width:min(320px,80vw);background:#25221f;color:#fff;border:3px solid #000;box-shadow:inset 0 0 0 3px #55504a;text-align:center;outline:none}
 #seed:focus{box-shadow:inset 0 0 0 3px #a6a198}
 .ic.sand{background:#dbcf8e}.ic.gravel{background:radial-gradient(#6e6a69 0 30%,transparent 32%) 0 0/8px 8px,#837f7e}.ic.water{background:rgba(48,100,200,.85)}
+.opt{font-size:26px;cursor:pointer;display:inline-flex;gap:8px;align-items:center;margin:10px 0 0;text-shadow:2px 2px #000}.opt input{width:20px;height:20px;cursor:pointer}
+.ic.bone{background:#e8e4d8;height:28%;width:72%;box-shadow:none;transform:rotate(-30deg)}
 #wtr{position:fixed;inset:0;background:rgba(30,80,200,.35);pointer-events:none;display:none}
 </style>
 </head>
@@ -78,14 +80,14 @@ button.on{background:#4f9a34;box-shadow:inset 0 0 0 3px #9fe07f}
 <div id="hud"><div class="bars"><div class="row" id="hp"></div><div class="row r" id="fd"></div></div><div id="bar"></div></div>
 <div class="ov" id="ov"><div>
 <h1>ClaudeCraft</h1>
-<p>Click to play</p><p id="seedline"></p><button id="mMenu">Main menu</button>
+<p>Click to play</p><p id="seedline"></p><label class="opt" onclick="event.stopPropagation()"><input type="checkbox" id="lockOpt2" checked> Cursor lock</label><br><button id="mMenu">Main menu</button>
 <p>WASD move · Space jump · Shift sprint</p>
 <p>Left click breaks a block and it drops. Walk over drops to pick them up. Right click places a block, or eats an apple.</p>
 <p>Keys 1-9 or mouse wheel pick a slot. Sprinting burns hunger. Falling hurts.</p>
 <p>Press E for inventory and 2x2 crafting. Right click a crafting table for 3x3 crafting.</p>
 <p>Hold left click to mine. Tools mine faster. Zombies roam the surface, so craft a sword.</p>
 </div></div>
-<div class="ov" id="menu"><div><h1>ClaudeCraft</h1><div class="mrow"><button id="mSurv" class="on">Survival</button><button id="mCre">Creative</button></div><p>World seed. Leave it empty for a random world.</p><input id="seed" placeholder="Seed" autocomplete="off" maxlength="40"><div><button id="mGo">Create World</button></div></div></div>
+<div class="ov" id="menu"><div><h1>ClaudeCraft</h1><div class="mrow"><button id="mSurv" class="on">Survival</button><button id="mCre">Creative</button></div><p>World seed. Leave it empty for a random world.</p><input id="seed" placeholder="Seed" autocomplete="off" maxlength="40"><div><label class="opt"><input type="checkbox" id="lockOpt" checked> Cursor lock</label></div><p style="font-size:20px;opacity:.8;margin-top:2px">Turn it off to keep your mouse free. Move the cursor toward the screen edges, or use the arrow keys, to turn.</p><div><button id="mGo">Create World</button></div></div></div>
 <div class="ov" id="dead"><div><h1>You died</h1><p id="why"></p><button id="respawn">Respawn</button></div></div>
 
 <div class="ov" id="invov"><div id="invp"><p id="ctitle" style="text-align:left;margin:0 0 8px"></p><div id="craft"><div id="cg"></div><span>➜</span><div id="co"></div></div><div id="store"></div><div id="hot"></div></div></div>
@@ -148,12 +150,13 @@ function colInfo(x,z){
   const n=vn(x*.035,0,z*.035)*.6+vn(x*.09,7,z*.09)*.3+vn(x*.22,13,z*.22)*.1;
   const sm=(a,b,t)=>{t=Math.min(1,Math.max(0,(t-a)/(b-a)));return t*t*(3-2*t)};
   const pw=sm(.47,.6,vn(x*.02+500,0,z*.02)),mw=sm(.56,.72,vn(x*.015+900,0,z*.015+900))*(1-pw),rg=1-Math.abs(2*vn(x*.05,3,z*.05)-1);
-  const h=Math.floor((10+n*18)*(1-pw)+(13+n*5)*pw+mw*(6+rg*22));
+  let h=Math.floor((10+n*18)*(1-pw)+(13+n*5)*pw+mw*(6+rg*22));
+  if(h<=SL+4){const p=sm(.5,.62,vn(x*.07+800,0,z*.07+800));h=Math.round(h+(SL-2-h)*p)}
   return{h,pw,sink:vn(x*.09+700,0,z*.09)>.8,lim:vn(x*.05+300,0,z*.05)>.66?h+1:h-3};
 }
 function terr(x,y,z,I){
   const h=I.h;if(y>h)return y<=SL?15:0;
-  const hi=h>40,bch=h<=SL+1;let b=y===h?(hi?3:bch?13:1):y>h-4?(hi?3:bch?13:2):3;
+  const hi=h>40,bch=h<=SL+2;let b=y===h?(hi?3:bch?13:1):y>h-4?(hi?3:bch?13:2):3;
   if(bch&&y>=h-1&&vn(x*.12+200,0,z*.12)>.62)b=14;
   if(y>1&&(y<I.lim||I.sink&&y>h-24)){
     if(I.sink&&y>h-24)return 0;
@@ -185,7 +188,7 @@ function genChunk(cx,cz){
       set(t.x+dx,t.h+dy,t.z+dz,7,true);
     }
   }
-  chunks.set(ck(cx,cz),{data,hm,cx,cz,mesh:null,meshed:false});
+  chunks.set(ck(cx,cz),{data,wl:new Uint8Array(CS*CS*H),hm,cx,cz,mesh:null,meshed:false});
 }
 function meshChunk(c){
   const a={p:[],u:[],c:[],i:[]},w={p:[],u:[],c:[],i:[]},X0=c.cx*CS,Z0=c.cz*CS,d=c.data;
@@ -201,6 +204,47 @@ function meshChunk(c){
   c.meshed=true;
 }
 function dropMesh(c){if(c.mesh){scene.remove(c.mesh);c.mesh.geometry.dispose();c.mesh=null}if(c.wmesh){scene.remove(c.wmesh);c.wmesh.geometry.dispose();c.wmesh=null}}
+// ---------- flowing water ----------
+const wq=new Map(),wdirty=new Set(),D4=[[1,0],[-1,0],[0,1],[0,-1]];
+const wkey=(x,y,z)=>((x+32768)*65536+z+32768)*64+y;
+function wake(x,y,z){
+  for(const [dx,dy,dz] of [[0,0,0],[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){
+    const X=x+dx,Y=y+dy,Z=z+dz;if(Y>=0&&Y<H)wq.set(wkey(X,Y,Z),[X,Y,Z]);
+  }
+}
+const lvAt=(x,y,z)=>{const c=chunks.get(ck(x>>4,z>>4));if(!c||y<0||y>=H)return 0;const i=(x&15)+16*((z&15)+16*y);return c.data[i]===15?(c.wl[i]||8):0};
+function setW(x,y,z,id,lv){
+  const c=chunks.get(ck(x>>4,z>>4));if(!c||y<0||y>=H)return;
+  const lx=x&15,lz=z&15,i=lx+16*(lz+16*y);c.data[i]=id;c.wl[i]=lv;wdirty.add(c);
+  const mk=(a,b)=>{const n=chunks.get(ck(a,b));if(n)wdirty.add(n)};
+  if(lx===0)mk(c.cx-1,c.cz);if(lx===15)mk(c.cx+1,c.cz);if(lz===0)mk(c.cx,c.cz-1);if(lz===15)mk(c.cx,c.cz+1);
+  wake(x,y,z);
+}
+let wT=0;
+function waterTick(dt){
+  wT-=dt;if(wT>0||!wq.size)return;wT=.2;
+  const items=[...wq.values()].slice(0,300);
+  for(const [x,y,z] of items)wq.delete(wkey(x,y,z));
+  for(const [x,y,z] of items){
+    if(getRaw(x,y,z)!==15)continue;
+    const lv=lvAt(x,y,z),below=getRaw(x,y-1,z);
+    if(lv<8){
+      const sup=getRaw(x,y+1,z)===15||D4.some(([dx,dz])=>{const l2=lvAt(x+dx,y,z+dz);return l2>lv&&getRaw(x+dx,y-1,z+dz)!==0});
+      if(!sup){setW(x,y,z,0,0);continue}
+    }
+    if(below===0&&y>0){setW(x,y-1,z,15,7);continue}
+    if(lv>1&&below!==0&&below!==15){
+      for(const [dx,dz] of D4){
+        const nx=x+dx,nz=z+dz,nb=getRaw(nx,y,nz);
+        if(nb===0)setW(nx,y,nz,15,lv-1);
+        else if(nb===15){const l2=lvAt(nx,y,nz);if(l2<8&&l2<lv-1)setW(nx,y,nz,15,lv-1)}
+      }
+    }
+  }
+  for(const c of wdirty)if(c.meshed)meshChunk(c);
+  wdirty.clear();
+}
+
 function settle(x,y,z){
   const b=getRaw(x,y,z);if(b!==13&&b!==14)return;
   let yy=y;while(yy>0&&(getRaw(x,yy-1,z)===0||getRaw(x,yy-1,z)===15))yy--;
@@ -209,7 +253,7 @@ function settle(x,y,z){
 }
 function setBlock(x,y,z,b){
   const c=chunks.get(ck(x>>4,z>>4));if(!c||y<0||y>=H)return;
-  const lx=x&15,lz=z&15;c.data[lx+16*(lz+16*y)]=b;meshChunk(c);
+  const lx=x&15,lz=z&15;c.data[lx+16*(lz+16*y)]=b;c.wl[lx+16*(lz+16*y)]=0;wake(x,y,z);meshChunk(c);
   const rm=(cx,cz)=>{const n=chunks.get(ck(cx,cz));if(n&&n.meshed)meshChunk(n)};
   if(lx===0)rm(c.cx-1,c.cz);if(lx===15)rm(c.cx+1,c.cz);if(lz===0)rm(c.cx,c.cz-1);if(lz===15)rm(c.cx,c.cz+1);
   settle(x,y+1,z);if(b===13||b===14)settle(x,y,z);
@@ -324,7 +368,7 @@ const skin=new THREE.MeshBasicMaterial({color:0xc58c5e,fog:false,depthTest:false
 const arm=new THREE.Mesh(new THREE.BoxGeometry(.17,.17,.7),skin);arm.position.z=-.3;arm.renderOrder=999;hand.add(arm);
 const cuff=new THREE.Mesh(new THREE.BoxGeometry(.19,.19,.28),new THREE.MeshBasicMaterial({color:0x3f7fbf,fog:false,depthTest:false}));cuff.position.z=-.08;cuff.renderOrder=1000;hand.add(cuff);
 const heldMat=mat.clone();heldMat.fog=false;heldMat.depthTest=false;
-const blockHeld=new THREE.Mesh(dropGeo,heldMat);blockHeld.scale.setScalar(1.7);blockHeld.position.set(0,.14,-.62);blockHeld.rotation.set(.35,.7,0);blockHeld.renderOrder=1001;hand.add(blockHeld);
+const blockHeld=new THREE.Mesh(dropGeo,heldMat);blockHeld.scale.setScalar(1.4);blockHeld.position.set(0,.14,-.62);blockHeld.rotation.set(.35,.7,0);blockHeld.renderOrder=1001;hand.add(blockHeld);
 const appleHeld=new THREE.Mesh(new THREE.SphereGeometry(.12,10,8),new THREE.MeshBasicMaterial({color:0xd8312b,fog:false,depthTest:false}));appleHeld.position.set(0,.14,-.62);appleHeld.renderOrder=1001;hand.add(appleHeld);
 const toolG=new THREE.Group();toolG.position.set(0,.1,-.58);toolG.rotation.set(.3,0,.5);toolG.visible=false;hand.add(toolG);
 const tHandle=new THREE.Mesh(new THREE.BoxGeometry(.04,.42,.04),new THREE.MeshBasicMaterial({color:0x8b6a3a,fog:false,depthTest:false}));tHandle.renderOrder=1001;
@@ -340,13 +384,13 @@ const crack=new THREE.Mesh(new THREE.BoxGeometry(1.01,1.01,1.01),new THREE.MeshB
 let swing=0,lastHeld=null;
 function updateHand(dt,t){
   const s=inv[sel],k=s?s.type:'';
-  if(k!==lastHeld){lastHeld=k;blockHeld.visible=k in BID;if(k in BID)blockHeld.geometry=dropGeos[BID[k]];appleHeld.visible=k==='apple';setTool(k)}
+  if(k!==lastHeld){lastHeld=k;blockHeld.visible=k in BID;if(k in BID)blockHeld.geometry=dropGeos[BID[k]];appleHeld.visible=!!FOOD[k];setTool(k)}
   swing=Math.max(0,swing-dt*3.5);
   const sw=Math.sin(swing*Math.PI);
   const walking=locked&&!P.dead&&P.ground&&(keys.KeyW||keys.KeyA||keys.KeyS||keys.KeyD);
   const bob=walking?Math.sin(t*9)*.015:0;
-  hand.position.set(.4,-.36+bob-sw*.05,-.4-sw*.12);
-  hand.rotation.set(.15-sw*1.1,.35-sw*.3,0);
+  hand.position.set(.42,-.5+bob-sw*.04,-.45-sw*.1);
+  hand.rotation.set(.15-sw*.7,.35-sw*.25,0);
 }
 
 // ---------- player ----------
@@ -358,12 +402,12 @@ function reset(){
   Object.assign(P,{x:sx+.5,y:topY(sx,sz)+1,z:sz+.5,vx:0,vy:0,vz:0,yaw:0,pitch:0,ground:false,fly:false,peak:0,hp:20,food:20,sat:5,exh:0,regen:0,starve:0,dead:false});
   inv=Array(36).fill(null);
   if(mode==='creative'){
-    const L=['grass','dirt','stone','coal_ore','iron_ore','log','leaves','planks','table','furnace','iron_block','coal_block','stick','coal','iron','apple','sand','gravel','water'];
+    const L=['grass','dirt','stone','coal_ore','iron_ore','log','leaves','planks','table','furnace','iron_block','coal_block','stick','coal','iron','apple','pork','beef','sand','gravel','water'];
     for(const m of ['wood','stone','iron'])for(const k of ['pickaxe','axe','shovel','hoe','sword'])L.push(m+'_'+k);
     L.forEach((t,i)=>{const ti=toolInfo(t);inv[i]=ti?{type:t,count:1,d:ti.m.dur}:{type:t,count:64}});
   }else{inv[0]={type:'grass',count:64};inv[1]={type:'apple',count:5}}
   sel=0;
-  drops.forEach(d=>scene.remove(d.mesh));drops=[];mobs.forEach(m=>scene.remove(m.g));mobs.length=0;
+  drops.forEach(d=>scene.remove(d.mesh));drops=[];mobs.forEach(m=>scene.remove(m.g));mobs.length=0;arrows.forEach(a=>scene.remove(a.mesh));arrows.length=0;
   renderBar();renderHud();
 }
 function hitBox(x,y,z){
@@ -414,18 +458,18 @@ const PRETTY={grass:'Grass Block',dirt:'Dirt',stone:'Stone',coal:'Coal Ore',iron
 const MAT={wood:{tier:1,sp:2,dur:60,col:0xb08c54,css:'#b08c54',dmg:4},stone:{tier:2,sp:4,dur:132,col:0x8a8a8a,css:'#8a8a8a',dmg:5},iron:{tier:3,sp:6,dur:250,col:0xe0ddd8,css:'#e0ddd8',dmg:6}};
 const KIND={pickaxe:{e:'⛏️'},axe:{e:'🪓'},shovel:{e:'🥄'},hoe:{e:'🌾'},sword:{e:'🗡️'}};
 function toolInfo(t){const [a,b]=t.split('_');return MAT[a]&&KIND[b]?{m:MAT[a],k:b}:null}
-Object.assign(PRETTY,{coal_ore:'Coal Ore',iron_ore:'Iron Ore',coal:'Coal',iron:'Iron Ingot',furnace:'Furnace',iron_block:'Block of Iron',coal_block:'Block of Coal'});
+Object.assign(PRETTY,{coal_ore:'Coal Ore',iron_ore:'Iron Ore',coal:'Coal',iron:'Iron Ingot',furnace:'Furnace',iron_block:'Block of Iron',coal_block:'Block of Coal',pork:'Raw Porkchop',beef:'Raw Beef',bone:'Bone'});
 const pretty=t=>PRETTY[t]||(toolInfo(t)?t.split('_').map(w=>w[0].toUpperCase()+w.slice(1)).join(' '):t);
 const itemHTML=s=>{
   if(!s)return'';const t=toolInfo(s.type);
-  const ic=t?`<div class="ic tool" style="--m:${t.m.css}">${KIND[t.k].e}</div>`:`<div class="ic ${s.type}">${s.type==='apple'?'🍎':''}</div>`;
+  const ic=t?`<div class="ic tool" style="--m:${t.m.css}">${KIND[t.k].e}</div>`:`<div class="ic ${s.type}">${EM[s.type]||''}</div>`;
   const du=t&&s.d<t.m.dur?`<i class="dur" style="width:${s.d/t.m.dur*100}%"></i>`:'';
   return ic+du+`<span class="cnt">${s.count>1?s.count:''}</span>`;
 };
 const appleGeo=new THREE.SphereGeometry(.12,8,6),boxGeo=new THREE.BoxGeometry(.22,.22,.22),IM={};
 function itemMesh(type){
   const t=toolInfo(type);
-  if(!IM[type])IM[type]=new THREE.MeshBasicMaterial({color:t?t.m.col:({stick:0x8b6a3a,coal:0x222222,iron:0xd9d4cc,apple:0xd8312b})[type]||0xff00ff});
+  if(!IM[type])IM[type]=new THREE.MeshBasicMaterial({color:t?t.m.col:({stick:0x8b6a3a,coal:0x222222,iron:0xd9d4cc,apple:0xd8312b,pork:0xf0a0a0,beef:0xa63a3a,bone:0xe8e4d8})[type]||0xff00ff});
   return new THREE.Mesh(type==='stick'?stickGeo:type==='apple'?appleGeo:boxGeo,IM[type]);
 }
 const HARD=[0,.8,.7,3,3.5,4,2,.3,1.5,1.5,3,5,5,.5,.6,0],BKIND=[0,'s','s','p','p','p','a','a','a','a','p','p','p','s','s',0],NEED=[0,0,0,1,1,2,0,0,0,0,1,2,1,0,0,0];
@@ -513,7 +557,7 @@ document.addEventListener('pointerlockchange',()=>{
 });
 addEventListener('keydown',e=>{if(menuOpen)return;keys[e.code]=true;if(/^Digit[1-9]$/.test(e.code)){sel=+e.code.slice(5)-1;renderBar()}});
 addEventListener('keyup',e=>keys[e.code]=false);
-addEventListener('mousemove',e=>{if(!locked)return;P.yaw-=e.movementX*.0022;P.pitch=Math.max(-1.55,Math.min(1.55,P.pitch-e.movementY*.0022))});
+addEventListener('mousemove',e=>{if(!locked||!useLock)return;P.yaw-=e.movementX*.0022;P.pitch=Math.max(-1.55,Math.min(1.55,P.pitch-e.movementY*.0022))});
 addEventListener('wheel',e=>{if(!locked)return;sel=(sel+(e.deltaY>0?1:8))%9;renderBar()});
 addEventListener('mousedown',e=>{if(!locked)return;mouse[e.button]=true;cd=0});
 addEventListener('mouseup',e=>mouse[e.button]=false);
@@ -522,11 +566,22 @@ addEventListener('keydown',e=>{
   if(P.dead||menuOpen)return;
   if(e.code==='Space'&&!e.repeat&&mode==='creative'&&locked){const t=performance.now();if(t-lastSpace<300){P.fly=!P.fly;P.vy=0}lastSpace=t}
   if(e.code==='KeyE'){e.preventDefault();if(invOpen)closeInv();else if(locked)openInv()}
-  else if(e.code==='Escape'&&invOpen)closeInv();
+  else if(e.code==='Escape'){if(invOpen)closeInv();else if(!useLock&&locked)document.exitPointerLock()}
 });
 cvs.addEventListener('click',()=>{if(!locked&&!P.dead&&!invOpen&&!menuOpen)cvs.requestPointerLock()});
 document.addEventListener('pointerlockerror',()=>{if(!invOpen&&!P.dead)ov.style.display='grid'});
 addEventListener('mousemove',e=>{if(invOpen)curs.style.transform=`translate(${e.clientX-20}px,${e.clientY-20}px)`});
+
+// ---------- cursor lock option ----------
+let useLock=true,mx=innerWidth/2,my=innerHeight/2;
+function syncOv(){for(const k in keys)keys[k]=false;mouse[0]=mouse[2]=false;ov.style.display=(locked||P.dead||invOpen||menuOpen)?'none':'grid'}
+const _req=cvs.requestPointerLock.bind(cvs),_exit=document.exitPointerLock.bind(document);
+cvs.requestPointerLock=()=>{if(useLock)_req();else{locked=true;syncOv()}};
+document.exitPointerLock=()=>{if(useLock)_exit();else{locked=false;syncOv()}};
+addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY});
+const lockOpt=document.getElementById('lockOpt'),lockOpt2=document.getElementById('lockOpt2');
+lockOpt.onchange=()=>{useLock=lockOpt.checked;lockOpt2.checked=useLock};
+lockOpt2.onchange=()=>{useLock=lockOpt2.checked;lockOpt.checked=useLock};
 
 // ---------- main menu ----------
 let mode='survival',menuOpen=true,lastSpace=0,pick='survival';
@@ -579,9 +634,9 @@ function breakBlock(h){
 function useItem(h){
   if(h&&get(h.x,h.y,h.z)===9){mouse[2]=false;cd=.3;openInv(true);return}
   const s=inv[sel];if(!s)return;
-  if(s.type==='apple'){
+  if(FOOD[s.type]){
     if(P.food>=20)return;
-    P.food=Math.min(20,P.food+4);P.sat=Math.min(P.food,P.sat+2.4);
+    P.food=Math.min(20,P.food+FOOD[s.type]);P.sat=Math.min(P.food,P.sat+2.4);
     if(--s.count<=0)inv[sel]=null;renderBar();renderHud();cd=.5;swing=1;return;
   }
   if(!h||!(s.type in BID))return;
@@ -596,13 +651,15 @@ function useItem(h){
 const dirV=new THREE.Vector3();
 function update(dt){
   if(mode==='creative'){P.food=20;P.hp=20;P.sat=5}
+  if(!useLock){const nx=(mx/innerWidth-.5)*2,ny=(my/innerHeight-.5)*2,zn=.35,ax=Math.abs(nx)>zn?Math.sign(nx)*(Math.abs(nx)-zn)/(1-zn):0,ay=Math.abs(ny)>zn?Math.sign(ny)*(Math.abs(ny)-zn)/(1-zn):0;P.yaw-=ax*2.4*dt;P.pitch=Math.max(-1.55,Math.min(1.55,P.pitch-ay*1.8*dt))}
+  P.yaw+=((keys.ArrowLeft?1:0)-(keys.ArrowRight?1:0))*2*dt;P.pitch=Math.max(-1.55,Math.min(1.55,P.pitch+((keys.ArrowUp?1:0)-(keys.ArrowDown?1:0))*1.5*dt));
   const sub=2,h=dt/sub;
   const fx=(keys.KeyW?1:0)-(keys.KeyS?1:0),sx=(keys.KeyD?1:0)-(keys.KeyA?1:0);
   const len=Math.hypot(fx,sx)||1;
   const sprint=keys.ShiftLeft&&fx>0&&P.food>6;
   const wet=getRaw(Math.floor(P.x),Math.floor(P.y+.7),Math.floor(P.z))===15;
   const sp=(sprint?5.6:4.3)*(wet?.6:1),sn=Math.sin(P.yaw),cs=Math.cos(P.yaw);
-  P.vx=(-sn*fx+cs*sx)/len*sp;P.vz=(-cs*fx-sn*sx)/len*sp;
+  const k=Math.min(1,dt*(P.ground||wet||P.fly?14:4)),tx=(-sn*fx+cs*sx)/len*sp,tz=(-cs*fx-sn*sx)/len*sp;P.vx+=(tx-P.vx)*k;P.vz+=(tz-P.vz)*k;
   if(P.fly){P.vy=((keys.Space?1:0)-(keys.ShiftLeft?1:0))*7;if(P.ground&&!keys.Space)P.fly=false}
   else if(keys.Space&&P.ground&&!wet){P.vy=8.5;P.exh+=sprint?.2:.05}
   const moving=fx||sx;
@@ -626,6 +683,7 @@ function update(dt){
   else P.regen=P.starve=0;
   if(P.y<-10){if(mode==='creative'){P.y=topY(Math.floor(P.x),Math.floor(P.z))+2;P.vy=0}else hurt(99,'You fell out of the world.')}
 
+  camera.fov+=((sprint&&moving?82:75)-camera.fov)*Math.min(1,dt*8);camera.updateProjectionMatrix();
   camera.position.set(P.x,P.y+1.62,P.z);camera.rotation.set(P.pitch,P.yaw,0);
   wtrEl.style.display=getRaw(Math.floor(P.x),Math.floor(P.y+1.62),Math.floor(P.z))===15?'block':'none';
   dirV.set(0,0,-1).applyEuler(camera.rotation);
@@ -639,7 +697,7 @@ function update(dt){
   renderHud();
 }
 // ---------- day / night ----------
-const DAY=240;let tod=.3,daylight=1;
+const DAY=720;let tod=.3,daylight=1;
 const sunM=new THREE.Mesh(new THREE.PlaneGeometry(16,16),new THREE.MeshBasicMaterial({color:0xfff2a8,fog:false,depthWrite:false}));
 const moonM=new THREE.Mesh(new THREE.PlaneGeometry(12,12),new THREE.MeshBasicMaterial({color:0xdfe6f5,fog:false,depthWrite:false}));
 sunM.renderOrder=moonM.renderOrder=-1;scene.add(sunM,moonM);
@@ -662,7 +720,7 @@ function updateSky(dt){
 }
 function skyOpen(x,y,z){const X=Math.floor(x),Z=Math.floor(z);for(let yy=Math.floor(y);yy<H;yy++)if(get(X,yy,Z))return false;return true}
 const BZ={s:0x5b9e4f,c:0x3b6fb3,l:0x2b3a80};
-function zColor(m,fire){for(const k in m.ms)m.ms[k].color.setHex(fire?(Math.random()<.5?0xff6a00:0xffd24a):BZ[k])}
+function zColor(m,fire){for(const k in m.ms)m.ms[k].color.setHex(fire?(Math.random()<.5?0xff6a00:0xffd24a):m.base[k])}
 
 // ---------- mining & mobs ----------
 let brk=null,atk=0,mobT=6;const mobs=[];
@@ -686,12 +744,12 @@ const zm={s:new THREE.MeshBasicMaterial({color:0x5b9e4f}),c:new THREE.MeshBasicM
 function mkZombie(x,y,z){
   const g=new THREE.Group(),ms={s:zm.s.clone(),c:zm.c.clone(),l:zm.l.clone()},B=(w,h,d,m,px,py,pz)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),ms[m]);o.position.set(px,py,pz);g.add(o)};
   B(.5,.7,.26,'c',0,1.05,0);B(.46,.46,.46,'s',0,1.62,0);B(.2,.2,.6,'s',-.36,1.3,.28);B(.2,.2,.6,'s',.36,1.3,.28);const leg=px=>{const p=new THREE.Group();p.position.set(px,.7,0);const o=new THREE.Mesh(new THREE.BoxGeometry(.22,.7,.24),ms.l);o.position.y=-.35;p.add(o);g.add(p);return p};const L1=leg(-.13),L2=leg(.13);
-  g.position.set(x,y,z);scene.add(g);mobs.push({g,x,y,z,vy:0,hp:10,atk:1,kx:0,kz:0,gr:false,L1,L2,ms,ph:0,sc:0,sun:false,burn:0,fire:false});
+  g.position.set(x,y,z);scene.add(g);mobs.push({g,type:'zombie',base:BZ,x,y,z,vy:0,hp:10,atk:1,kx:0,kz:0,gr:false,L1,L2,ms,ph:0,sc:0,sun:false,burn:0,fire:false});
 }
 function mobAt(){
   let best=null,bt=3.6;
   for(const m of mobs){
-    const cx=m.x-camera.position.x,cy=m.y+.9-camera.position.y,cz=m.z-camera.position.z;
+    const cx=m.x-camera.position.x,cy=m.y+(m.cy||.9)-camera.position.y,cz=m.z-camera.position.z;
     const t=cx*dirV.x+cy*dirV.y+cz*dirV.z;if(t<0||t>bt)continue;
     if(cx*cx+cy*cy+cz*cz-t*t<.45){best=m;bt=t}
   }
@@ -700,18 +758,27 @@ function mobAt(){
 function hitMob(m,tl){
   const dmg=tl?Math.max(1,tl.m.dmg-(tl.k==='sword'?0:tl.k==='axe'?1:2)):1;
   m.hp-=dmg;const dx=m.x-P.x,dz=m.z-P.z,d=Math.hypot(dx,dz)||1;m.kx=dx/d*7;m.kz=dz/d*7;m.vy=4;if(tl)useDur();
-  if(m.hp<=0){scene.remove(m.g);mobs.splice(mobs.indexOf(m),1);if(Math.random()<.5)spawnDrop(m.x,m.y+.5,m.z,'apple')}
+  if(m.hp<=0){scene.remove(m.g);mobs.splice(mobs.indexOf(m),1);mobDrops(m)}else if(m.type==='pig'||m.type==='cow')m.pan=3;
 }
 const zHit=m=>hitBox(m.x,m.y,m.z);
 function updateMobs(dt){
+  spawnTick(dt);updateArrows(dt);
   mobT-=dt;
-  if(mobT<=0&&daylight<.35&&mobs.length<5&&mode!=='creative'){
+  if(mobT<=0&&daylight<.35&&mobs.filter(q=>q.type==='zombie').length<5&&mode!=='creative'){
     mobT=4;const a=Math.random()*6.28,r=14+Math.random()*8,x=Math.floor(P.x+Math.cos(a)*r),z=Math.floor(P.z+Math.sin(a)*r);
     if(true){const y=topY(x,z);if(get(x,y,z)&&getRaw(x,y+1,z)===0&&getRaw(x,y+2,z)===0)mkZombie(x+.5,y+1,z+.5)}
   }
   for(let i=mobs.length-1;i>=0;i--){
     const m=mobs[i],dx=P.x-m.x,dz=P.z-m.z,d=Math.hypot(dx,dz)||1;
-    let vx=m.kx,vz=m.kz;if(d<28){vx+=dx/d*2.4;vz+=dz/d*2.4}
+    let vx=m.kx,vz=m.kz;
+    if(m.type==='zombie'){if(d<28){vx+=dx/d*2.4;vz+=dz/d*2.4}}
+    else if(m.type==='skeleton'){
+      if(d<26){const want=d>10?1:d<6?-1:0;vx+=dx/d*2*want;vz+=dz/d*2*want}
+      m.shot-=dt;if(d<18&&d>3&&m.shot<=0&&!P.dead){shootArrow(m);m.shot=1.8}
+    }else{
+      m.wt-=dt;if(m.wt<=0){m.wt=2+Math.random()*4;const a=Math.random()*6.28,go=Math.random()<.6;m.wx=go?Math.cos(a):0;m.wz=go?Math.sin(a):0}
+      if(m.pan>0){m.pan-=dt;vx-=dx/d*3.6;vz-=dz/d*3.6}else{vx+=m.wx*1.2;vz+=m.wz*1.2}
+    }
     m.kx*=.88;m.kz*=.88;
     const ox=m.x,oz=m.z;let blocked=false;
     m.x+=vx*dt;if(zHit(m)){m.x=ox;blocked=true}
@@ -720,13 +787,73 @@ function updateMobs(dt){
     m.vy=Math.max(-30,m.vy-24*dt);m.gr=false;m.y+=m.vy*dt;
     if(zHit(m)){if(m.vy<0){m.y=Math.floor(m.y)+1;m.gr=true}else m.y=Math.floor(m.y+PH)-PH-.001;m.vy=0}
     m.atk-=dt;
-    if(d<1.1&&Math.abs(P.y-m.y)<1.6&&m.atk<=0&&!P.dead){hurt(3,'You were slain by a zombie.');m.atk=1}
-    m.sc-=dt;if(m.sc<=0){m.sc=.3;m.sun=daylight>.5&&skyOpen(m.x,m.y+2,m.z)}
+    if(m.type==='zombie'&&d<1.1&&Math.abs(P.y-m.y)<1.6&&m.atk<=0&&!P.dead){hurt(3,'You were slain by a zombie.');m.atk=1}
+    m.sc-=dt;if(m.sc<=0){m.sc=.3;m.sun=(m.type==='zombie'||m.type==='skeleton')&&daylight>.5&&skyOpen(m.x,m.y+2,m.z)}
     if(m.sun){m.burn+=dt;m.fire=true;zColor(m,true)}else{m.burn=Math.max(0,m.burn-dt);if(m.fire){m.fire=false;zColor(m,false)}}
     if(m.burn>3){scene.remove(m.g);mobs.splice(i,1);continue}
-    const spd=Math.hypot(vx,vz);m.ph+=spd*dt*3.2;const sw=Math.sin(m.ph)*.8*Math.min(1,spd/2);m.L1.rotation.x=sw;m.L2.rotation.x=-sw;
-    m.g.position.set(m.x,m.y,m.z);m.g.rotation.y=Math.atan2(dx,dz);
-    if(d>45||m.y<-5){scene.remove(m.g);mobs.splice(i,1)}
+    const spd=Math.hypot(vx,vz);m.ph+=spd*dt*3.2;const sw=Math.sin(m.ph)*.8*Math.min(1,spd/2);m.L1.rotation.x=sw;m.L2.rotation.x=-sw;if(m.L3){m.L3.rotation.x=-sw;m.L4.rotation.x=sw}
+    m.g.position.set(m.x,m.y,m.z);m.g.rotation.y=m.type==='pig'||m.type==='cow'?(spd>.1?Math.atan2(vx,vz):m.g.rotation.y):Math.atan2(dx,dz);
+    if(d>(m.type==='zombie'||m.type==='skeleton'?45:80)||m.y<-5){scene.remove(m.g);mobs.splice(i,1)}
+  }
+}
+const FOOD={apple:4,pork:3,beef:4},EM={apple:'🍎',pork:'🥓',beef:'🥩'};
+const MCOL={pig:{s:0xf0a8a0,c:0xe08880,l:0xe49890},cow:{s:0x6b4a2f,c:0xe8e0d0,l:0x4a3320},skeleton:{s:0xdcdcd0,c:0xc8c8bc,l:0xb8b8ac}},MHP={pig:6,cow:8,skeleton:14},MCY={pig:.5,cow:.8,skeleton:.9};
+function mkMob(type,x,y,z){
+  const g=new THREE.Group(),col=MCOL[type],ms={};
+  for(const k in col)ms[k]=new THREE.MeshBasicMaterial({color:col[k]});
+  const B=(w,h,d,m,px,py,pz,par)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),ms[m]);o.position.set(px,py,pz);(par||g).add(o)};
+  const leg=(w,h,px,py,pz)=>{const p=new THREE.Group();p.position.set(px,py,pz);B(w,h,w,'l',0,-h/2,0,p);g.add(p);return p};
+  let L;
+  if(type==='pig'){B(.6,.55,.9,'s',0,.65,0);B(.45,.4,.4,'s',0,.8,.6);B(.22,.16,.1,'c',0,.75,.83);L=[leg(.18,.38,-.17,.38,.28),leg(.18,.38,.17,.38,.28),leg(.18,.38,-.17,.38,-.28),leg(.18,.38,.17,.38,-.28)]}
+  else if(type==='cow'){B(.7,.7,1.1,'s',0,1,0);B(.45,.45,.45,'s',0,1.35,.75);B(.3,.2,.1,'c',0,1.25,.99);B(.3,.3,.5,'c',.2,1.1,-.2);L=[leg(.2,.6,-.22,.6,.4),leg(.2,.6,.22,.6,.4),leg(.2,.6,-.22,.6,-.4),leg(.2,.6,.22,.6,-.4)]}
+  else{B(.4,.65,.2,'c',0,1.05,0);B(.4,.4,.4,'s',0,1.55,0);B(.12,.12,.6,'s',-.28,1.3,.28);B(.12,.12,.6,'s',.28,1.3,.28);L=[leg(.14,.7,-.1,.7,0),leg(.14,.7,.1,.7,0)]}
+  g.position.set(x,y,z);scene.add(g);
+  mobs.push({g,type,base:col,x,y,z,vy:0,hp:MHP[type],atk:1,kx:0,kz:0,gr:false,L1:L[0],L2:L[1],L3:L[2],L4:L[3],ms,ph:0,sc:0,sun:false,burn:0,fire:false,wx:0,wz:0,wt:0,pan:0,shot:2,cy:MCY[type]});
+}
+function mobDrops(m){
+  const dr=(t,n)=>{for(let i=0;i<n;i++)spawnDrop(m.x,m.y+.5,m.z,t)};
+  if(m.type==='zombie'){if(Math.random()<.5)dr('apple',1)}
+  else if(m.type==='pig')dr('pork',1+(Math.random()<.5?1:0));
+  else if(m.type==='cow')dr('beef',1+Math.floor(Math.random()*3));
+  else dr('bone',Math.random()<.7?1:0);
+}
+let pT=3,sT=5;
+function spawnTick(dt){
+  pT-=dt;sT-=dt;
+  if(pT<=0){
+    pT=4;
+    if(daylight>.5&&mobs.filter(q=>q.type==='pig'||q.type==='cow').length<10){
+      const a=Math.random()*6.28,r=14+Math.random()*16,x0=Math.floor(P.x+Math.cos(a)*r),z0=Math.floor(P.z+Math.sin(a)*r),t=Math.random()<.5?'pig':'cow';
+      for(let i=0;i<3;i++){
+        const x=x0+Math.floor(Math.random()*5)-2,z=z0+Math.floor(Math.random()*5)-2,y=topY(x,z);
+        if(get(x,y,z)===1&&getRaw(x,y+1,z)===0&&getRaw(x,y+2,z)===0)mkMob(t,x+.5,y+1,z+.5);
+      }
+    }
+  }
+  if(sT<=0){
+    sT=5;
+    if(mode!=='creative'&&mobs.filter(q=>q.type==='skeleton').length<4){
+      for(let n=0;n<14;n++){
+        const x=Math.floor(P.x+(Math.random()*2-1)*20),z=Math.floor(P.z+(Math.random()*2-1)*20),y=Math.floor(P.y+Math.random()*16-8);
+        if(Math.hypot(x-P.x,z-P.z)<8||y<2)continue;
+        if(getRaw(x,y,z)===0&&getRaw(x,y+1,z)===0&&getRaw(x,y+2,z)===0&&get(x,y-1,z)&&y<colInfo(x,z).h-4){mkMob('skeleton',x+.5,y,z+.5);break}
+      }
+    }
+  }
+}
+const arrows=[],arrGeo=new THREE.BoxGeometry(.05,.05,.6),arrMat=new THREE.MeshBasicMaterial({color:0xdddddd});
+function shootArrow(m){
+  const ox=m.x,oy=m.y+1.45,oz=m.z,tx=P.x-ox,ty=P.y+1.2-oy,tz=P.z-oz,L=Math.hypot(tx,ty,tz)||1,s=16;
+  const mesh=new THREE.Mesh(arrGeo,arrMat);scene.add(mesh);
+  arrows.push({mesh,x:ox,y:oy,z:oz,vx:tx/L*s,vy:ty/L*s+L*.12,vz:tz/L*s,life:4});
+}
+function updateArrows(dt){
+  for(let i=arrows.length-1;i>=0;i--){
+    const a=arrows[i];a.life-=dt;a.vy-=8*dt;a.x+=a.vx*dt;a.y+=a.vy*dt;a.z+=a.vz*dt;
+    a.mesh.position.set(a.x,a.y,a.z);a.mesh.lookAt(a.x+a.vx,a.y+a.vy,a.z+a.vz);
+    let dead=a.life<=0||get(Math.floor(a.x),Math.floor(a.y),Math.floor(a.z));
+    if(!dead&&!P.dead&&Math.abs(a.x-P.x)<.45&&Math.abs(a.z-P.z)<.45&&a.y>P.y&&a.y<P.y+1.8){hurt(2,'You were shot by a skeleton.');dead=true}
+    if(dead){scene.remove(a.mesh);arrows.splice(i,1)}
   }
 }
 function updateDrops(dt,t){
@@ -756,7 +883,7 @@ reset();
 let last=performance.now();
 function loop(now){
   const dt=Math.min(.04,(now-last)/1000);last=now;
-  if(locked&&!P.dead){update(dt);updateMobs(dt);updateSky(dt)}else updateSky(0);
+  if(locked&&!P.dead){update(dt);updateMobs(dt);updateSky(dt);waterTick(dt)}else updateSky(0);
   updateChunks(P.x,P.z,2);updateDrops(dt,now/1000);updateHand(dt,now/1000);
   renderer.render(scene,camera);
   requestAnimationFrame(loop);
